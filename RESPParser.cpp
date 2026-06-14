@@ -48,3 +48,14 @@ string RESPParser::serializeInteger(int val){
 }
 
 
+
+
+string RESPParser::serializeArray(const vector<string>&arr){
+    string res ="*"+to_string(arr.size())+"\r\n";
+
+    for(auto&str:arr) res+="$" +to_string(str.length())+"\r\n"+str+"\r\n";
+
+    return res;
+}
+
+

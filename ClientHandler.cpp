@@ -124,6 +124,86 @@ void ClientHandler::handleChat(){
             s = parser.serializeInteger(result);
             send(client_fd, s.c_str(),s.length(),0);
         }
+
+        else if(command=="LPUSH"|| command=="lpush"||command=="RPUSH"|| command=="rpush"){
+            if(parsed_command.size()<3){
+                string s= parser.serializeError("ERR wrong umber of arguments");
+                send(client_fd, s.c_str(),s.length(),0);
+                continue;
+            }
+
+            string key = parsed_command[1];
+            vector<string> values(parsed_command.begin()+2,parsed_command.end());
+            int res ;
+
+            if(command=="LPUSH"||command=="lpush")res=db->lpush(key,values);
+            else res=db->rpush(key,values);
+
+            string s= parser.serializeInteger(res);
+            send(client_fd, s.c_str(),s.length(),0);
+
+        }
+
+        else if(command=="LLEN"||command=="llen"){
+            if(parsed_command.size()!=2){
+                string s= parser.serializeError("ERR wrong number of arguments");
+                send(client_fd, s.c_str(),s.length(),0);
+                continue;
+            }
+
+            string key = parsed_command[1];
+
+            string s=parser.serializeInteger(db->llen(key));
+            send(client_fd, s.c_str(),s.length(),0);
+        }
+
+        else if(command=="LRANGE"||command=="lrange"){
+            if(parsed_command.size()!=4){
+                string s= parser.serializeError("ERR wrong umber of arguments");
+                send(client_fd, s.c_str(),s.length(),0);
+                continue;
+            }
+
+            string key = parsed_command[1];
+            try{
+                int start=stoi(parsed_command[2]);
+                int stop=stoi(parsed_command[3]);
+
+                vector<string> res = db->lrange(key,start,stop);
+                string s=parser.serializeArray(res);
+                send(client_fd, s.c_str(),s.length(),0);
+            }
+            catch(...){
+                string s = parser.serializeError("ERR value is not an integer");
+                send(client_fd, s.c_str(), s.length(), 0);
+            }
+        }
+
+        else if(command=="LREM"||command=="lrem"){
+            if(parsed_command.size()!=4){
+                string s= parser.serializeError("ERR wrong umber of arguments");
+                send(client_fd, s.c_str(),s.length(),0);
+                continue;
+            }
+
+            string key = parsed_command[1];
+            string value=parsed_command[3];
+            
+
+            try{
+                int cnt = stoi(parsed_command[2]);
+                int res=db->lrem(key,cnt,value);
+
+                string s = parser.serializeInteger(res);
+                send(client_fd, s.c_str(),s.length(),0);
+            }
+            catch(...){
+                string s=parser.serializeError("ERR value is note an integer");
+                send(client_fd, s.c_str(),s.length(),0);
+            }
+
+
+        }
         
         else{
             string s = parser.serializeError("ERR unknown command");

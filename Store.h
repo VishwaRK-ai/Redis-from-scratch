@@ -11,8 +11,9 @@ using namespace std;
 class Store {
 private:
     unordered_map<string, string> db;//database
-    std::unordered_map<string, uint64_t> expiry;//timestamps
-    std::mutex db_mutex;
+    unordered_map<string, uint64_t> expiry;//timestamps
+    unordered_map<string, deque<string>> list_db;
+    mutex db_mutex;
 
     uint64_t now();
 public:
@@ -22,6 +23,12 @@ public:
 
     int del(const string&key);
     int exists(const string&key);
+
+    int lpush(const string& key,const vector<string>&values);
+    int rpush(const string& key,const vector<string>&values);
+    int llen(const string& key);
+    vector<string> lrange(const string& key,int start, int stop);
+    int lrem(const string& key,int count, const string&values);
 };
 
 #endif
