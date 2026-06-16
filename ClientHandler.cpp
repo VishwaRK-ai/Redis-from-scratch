@@ -26,18 +26,36 @@ void ClientHandler::handleChat(){
         if(bytes_read<=0){
             break;
         }
-        
-        vector<string> parsed_command = parser.parse(buffer);
+        //new ping
+        if(buffer[0]!='*'){
+            string raw(buffer);
+            if((raw.find("PING")!= string::npos)||(raw.find("ping") != string::npos))
+                send(client_fd, "+PONG\r\n", 7, 0);
+            else{
+                string s="-ERR protocol error\r\n";
+                send(client_fd,s.c_str(),s.length(), 0);
+            }
+            continue; 
+        }
+        //
+
+        vector<string> parsed_command;
+        //fix attempt3
+        try{
+            parsed_command = parser.parse(buffer);
+        }
+        catch(...){
+            string s = "-ERR invalid RESP format\r\n";
+            send(client_fd, s.c_str(), s.length(), 0);
+            continue;
+        }
+        //
+
 
         if(parsed_command.empty())continue;
         string command = parsed_command[0];
 
-        string response;
-        if(command=="PING" || command=="ping"){
-            send(client_fd, "+PONG\r\n", strlen("+PONG\r\n"), 0);
-        }
-
-        else if(command=="ECHO" || command=="echo"){
+        if(command=="ECHO" || command=="echo"){
 
             if(parsed_command.size()==2){
                 string s = parser.serializeSimpleString(parsed_command[1]);

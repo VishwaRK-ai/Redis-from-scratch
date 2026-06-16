@@ -9,6 +9,7 @@ Benchmarked via Docker on macOS using `redis-benchmark`
 
 | Command | Time Complexity | Throughput (req/sec) | Avg Latency (ms) |
 | :--- | :--- | :--- | :--- |
+| **PING** | $O(1)$ | 37,594 | 1.30 |
 | **GET** | $O(1)$ | 54,644 | 0.88 |
 | **LPUSH** | $O(1)$ | 54,644 | 0.88 |
 | **SET** | $O(1)$ | 53,475 | 0.89 |
