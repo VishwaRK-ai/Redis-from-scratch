@@ -1,5 +1,11 @@
 # Redis-from-scratch
 
+## Live Demo
+
+Deployed on Railway.Connect from terminal
+```bash
+redis-cli -h acela.proxy.rlwy.net -p 56680
+```
 
 ## Architecture
 
