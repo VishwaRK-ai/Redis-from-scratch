@@ -1,0 +1,15 @@
+*.o
+*.out
+
+server
+LPUSH
+SET
+GET
+DEL
+RPUSH
+LRANGE
+LLEN
+LREM
+exit
+
+.DS_Store

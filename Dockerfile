@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN clang++ -std=c++14 main.cpp RedisServer.cpp ClientHandler.cpp RESPParser.cpp Store.cpp -o server
+RUN clang++ -std=c++14 main.cpp RedisServer.cpp ClientHandler.cpp RESPParser.cpp Store.cpp Replicator.cpp -o server
 
 EXPOSE 6379
 

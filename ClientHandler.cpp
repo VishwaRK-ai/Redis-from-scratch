@@ -9,12 +9,12 @@
 #include "Store.h"
 #include <arpa/inet.h>
 #include <thread>
+#include <mutex>
+#include <atomic>
 using namespace std;
 
-
-string server_role = "master";//defaut role:master
-int master_socket = -1;
-vector<int> replica_sockets;
+#include "Replicator.h"
+Replicator global_replicator;
 
 
 ClientHandler::ClientHandler(int fd,Store* store_ptr){
@@ -26,13 +26,31 @@ void ClientHandler::handleChat(){
 
     RESPParser parser;
     while(1){
-        
-        memset(buffer,0,sizeof(buffer));
-        int bytes_read = read(client_fd,buffer,1024);
 
-        if(bytes_read<=0){
-            break;
+
+        /*dynamic increase in input reading*/
+
+        string buffer;
+        char block[1024];
+
+        //first read: BLOCKING
+        memset(block,0,1024);
+        int bytes = read(client_fd,block,1024);
+        if(bytes<=0)break;
+        buffer.append(block,bytes);
+
+        //subsequent read: NON-BLOCKING
+        while(bytes==1024){
+            memset(block,0,1024);
+            bytes=recv(client_fd,block,1024,MSG_DONTWAIT);
+            
+            if(bytes>0)buffer.append(block,bytes);
+            else break;
         }
+
+        /***********/
+        
+        
         //new ping
         if(buffer[0]!='*'){
             string raw(buffer);
@@ -81,79 +99,17 @@ void ClientHandler::handleChat(){
                 send(client_fd, s.c_str(),s.length(),0);
                 continue;
             }
-            //change role
-            server_role="replica";
 
             string host = parsed_command[1];
             string port = parsed_command[2];
 
-
-            //socket to master
-            master_socket = socket(AF_INET,SOCK_STREAM,0);
-            struct sockaddr_in master_addr;
-            master_addr.sin_family = AF_INET;
-            master_addr.sin_port = htons(stoi(port));
-            inet_pton(AF_INET, host.c_str(), &master_addr.sin_addr);
-
-
-            //connect
-
-            int connect_status=connect(master_socket,(struct sockaddr*)&master_addr,sizeof(master_addr));
-            if(connect_status<0){
-                s=parser.serializeError("ERR could not connect to master");
-                send(client_fd,s.c_str(),s.length(), 0);
-            }
-
-            else{
-                s=parser.serializeSimpleString("OK");
-                send(client_fd,s.c_str(),s.length(), 0);
-
-                string sync_command = "*1\r\n$4\r\nSYNC\r\n";
-                send(master_socket,sync_command.c_str(),sync_command.length(),0);
-
-
-                //master listener thread
-                std::thread master_listner([this](){
-                    char master_buffer[1024];
-                    RESPParser local_parser;
-
-                    while(true){
-                        memset(master_buffer,0,sizeof(buffer));
-                        int bytes = read(master_socket,master_buffer,1024);
-                        if(bytes<=0)break;
-
-                        try{
-                            vector<string> command = local_parser.parse(master_buffer);
-                            if(command.empty())continue;
-                            string c = command[0];
-                            if(c=="SET"||c=="set"){
-                                uint64_t ttl=0;
-
-                                if(command.size()==5){
-                                    if(command[3]=="EX"||command[3]=="ex")
-                                    ttl =stoull(command[4])*1000;
-                                }
-                                db->set(command[1],command[2],ttl);
-                            }
-                            else if(c=="DEL"||c=="del") db->del(command[1]);
-                            else if(c=="LPUSH"||c=="lpush"||c=="RPUSH"||c=="rpush"){
-                                vector<string> vals(command.begin()+2, command.end());
-                                if(c=="LPUSH"||c=="lpush")db->lpush(command[1], vals);
-                                else db->rpush(command[1], vals);
-                            }
-                            else if(c=="LREM"||c=="lrem")db->lrem(command[1],stoi(command[2]),command[3]);
-                        }
-                        catch(...){
-                            continue;
-                        }
-                    }
-                });master_listner.detach();//run in bg
-            }
+            global_replicator.connectToMaster(client_fd, host, port, db);
         }
+
 
         else if(command=="SYNC"||command=="sync"){
             string s;
-            replica_sockets.push_back(client_fd);
+            global_replicator.addReplicaSocket(client_fd);
             s=parser.serializeSimpleString("OK");
             send(client_fd,s.c_str(),s.length(), 0);
         }
@@ -165,7 +121,7 @@ void ClientHandler::handleChat(){
                 continue;
             }
 
-            if(server_role == "replica"){
+            if(global_replicator.getIsReplica()){
                 string s="-READONLY You cant write against a READ ONLY replica.\r\n";
                 send(client_fd,s.c_str(),s.length(), 0);
                 continue;
@@ -198,8 +154,7 @@ void ClientHandler::handleChat(){
             string s = parser.serializeSimpleString("OK");
             send(client_fd, s.c_str(), s.length(), 0);
 
-            if(server_role == "master")
-                for(int sock:replica_sockets) send(sock,buffer, bytes_read,0);
+            global_replicator.propagateCommand(buffer);
         }
         else if(command=="GET" || command=="get"){
             string s;
@@ -231,7 +186,7 @@ void ClientHandler::handleChat(){
 
         else if(command=="DEL"|| command=="del"){
             string s;
-            if(server_role == "replica"){
+            if(global_replicator.getIsReplica()){
                 string s="-READONLY You cant write against a READ ONLY replica.\r\n";
                 send(client_fd,s.c_str(),s.length(), 0);
                 continue;
@@ -247,12 +202,11 @@ void ClientHandler::handleChat(){
             int result = db->del(key);
             s = parser.serializeInteger(result);
             send(client_fd, s.c_str(),s.length(),0);
-            if(server_role == "master")
-                for(int sock:replica_sockets) send(sock,buffer, bytes_read,0);
+            global_replicator.propagateCommand(buffer);
         }
 
         else if(command=="LPUSH"|| command=="lpush"||command=="RPUSH"|| command=="rpush"){
-            if(server_role == "replica"){
+            if(global_replicator.getIsReplica()){
                 string s="-READONLY You cant write against a READ ONLY replica.\r\n";
                 send(client_fd,s.c_str(),s.length(), 0);
                 continue;
@@ -275,8 +229,7 @@ void ClientHandler::handleChat(){
             send(client_fd, s.c_str(),s.length(),0);
 
 
-            if(server_role == "master")
-                for(int sock:replica_sockets) send(sock,buffer, bytes_read,0);
+            global_replicator.propagateCommand(buffer);
 
         }
 
@@ -317,7 +270,7 @@ void ClientHandler::handleChat(){
         }
 
         else if(command=="LREM"||command=="lrem"){
-            if(server_role == "replica"){
+            if(global_replicator.getIsReplica()){
                 string s="-READONLY You cant write against a READ ONLY replica.\r\n";
                 send(client_fd,s.c_str(),s.length(), 0);
                 continue;
@@ -339,8 +292,7 @@ void ClientHandler::handleChat(){
                 string s = parser.serializeInteger(res);
                 send(client_fd, s.c_str(),s.length(),0);
 
-                if(server_role == "master")
-                for(int sock:replica_sockets) send(sock,buffer, bytes_read,0);
+                global_replicator.propagateCommand(buffer);
             }
             catch(...){
                 string s=parser.serializeError("ERR value is note an integer");
