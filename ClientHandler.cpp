@@ -50,17 +50,36 @@ void ClientHandler::handleChat(){
 
         /***********/
         
-        
+        /*****DEBUG:ADDED HEX DUMP */
+        // fprintf(stderr,"DEBUG raw bytes (%zu bytes): ",buffer.size());
+        // for(unsigned char c:buffer){
+        //     fprintf(stderr, "%02X ", c);
+        // }
+        // fprintf(stderr, "\nDEBUG as string: ");
+
+        // for(unsigned char c:buffer){
+        //     if(c=='\r')fprintf(stderr,"\\r");
+        //     else if(c == '\n')fprintf(stderr,"\\n");
+        //     else fprintf(stderr, "%c",c);
+        // }
+
+        // fprintf(stderr,"\n");
+        /***** */
+
+
         //new ping
         if(buffer[0]!='*'){
             string raw(buffer);
-            if((raw.find("PING")!= string::npos)||(raw.find("ping") != string::npos))
-                send(client_fd, "+PONG\r\n", 7, 0);
+            string cleaned;
+            for(char c:raw)if(c!='\r'&&c!='\n')cleaned += c;
+            raw = cleaned;
+            if(raw == "PING" || raw == "ping")send(client_fd, "+PONG\r\n", 7, 0);
+            else if(raw=="COMMAND"||raw=="command")send(client_fd, "*0\r\n", 4, 0);
             else{
-                string s="-ERR protocol error\r\n";
-                send(client_fd,s.c_str(),s.length(), 0);
+                string s="-ERR unknown command '"+raw+"'\r\n";
+                send(client_fd,s.c_str(),s.length(),0);
             }
-            continue; 
+            continue;
         }
         //
 
@@ -166,7 +185,7 @@ void ClientHandler::handleChat(){
             string key = parsed_command[1]; 
             string val = db->get(key);
             if(val=="") s="$-1\r\n";
-            else s = parser.serializeSimpleString(val);
+            else s = parser.serializeBulkString(val);
 
             send(client_fd, s.c_str(), s.length(), 0);
         }
@@ -300,6 +319,16 @@ void ClientHandler::handleChat(){
             }
 
 
+        }
+
+        else if(command == "COMMAND" || command == "command"){
+            //handshake with empty array
+            string s="*0\r\n";
+            send(client_fd,s.c_str(),s.length(), 0);
+        }
+        
+        else if(command == "PING" || command == "ping"){
+            send(client_fd, "+PONG\r\n", 7, 0);
         }
         
         else{

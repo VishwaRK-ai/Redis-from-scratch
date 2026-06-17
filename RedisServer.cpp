@@ -23,7 +23,7 @@ RedisServer::RedisServer(){
 
     int opt = 1;
     setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    int max_client =5;
+    max_clients =5;
 }
 
 void RedisServer::Listen(int port){

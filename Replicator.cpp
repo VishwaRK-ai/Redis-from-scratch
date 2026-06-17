@@ -45,7 +45,6 @@ void Replicator::connectToMaster(int client_fd,const string& host,const string& 
     send(master_socket,sync_command.c_str(),sync_command.length(),0);
 
     std::thread master_listner([this, db](){
-        char master_buffer[1024];
         RESPParser local_parser;
 
         while(true){

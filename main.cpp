@@ -10,7 +10,9 @@ using namespace std;
 
 int main(){
     RedisServer myserver;
-    myserver.Listen(6379);
+    const char* port_env =getenv("PORT");
+    int port=port_env?atoi(port_env):6379;
+    myserver.Listen(port);
     myserver.acceptClients();
 
     return (0);

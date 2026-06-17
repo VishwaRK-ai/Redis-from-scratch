@@ -47,7 +47,9 @@ string RESPParser::serializeInteger(int val){
     return ":"+to_string(val)+"\r\n";
 }
 
-
+string RESPParser::serializeBulkString(const string& str){
+    return "$" + to_string(str.length()) + "\r\n" + str + "\r\n";
+}
 
 
 string RESPParser::serializeArray(const vector<string>&arr){

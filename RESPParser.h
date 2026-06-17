@@ -12,7 +12,7 @@ public:
     string serializeSimpleString(const string& str);
     string serializeError(const string& err);
     string serializeInteger(const int val);
-
+    string serializeBulkString(const string& str);
     string serializeArray(const vector<string> &arr);
 };
 

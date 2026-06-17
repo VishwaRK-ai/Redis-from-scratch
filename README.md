@@ -5,7 +5,7 @@
 
 * **Networking:** Operates on raw TCP sockets.the main thread listens for incoming connections and spawns a detached `std::thread` for each connected client to allow Concurrent request processing.
 * **RESP Parser:** Implements a custom parser for the Redis Serialization Protocol (RESP) to handle arrays, bulk strings, and strings.
-* **Storage (`Store` class):** The underlying database utilizes `std::unordered_map` for strings and `std::list` wrapped in maps for list data types.Memory mutations are thread-safe!!
+* **Storage (`Store` class):** The underlying database utilizes `std::unordered_map` for strings and `std::deque` wrapped in maps for list data types.Memory mutations are thread-safe!!
 * **Replication Engine (`Replicator` class):** Follows a strict Master-Replica topology. The Master asynchronously propagates write commands over TCP to all connected Replicas.Replicas enforce a Read-Only to prevent localized state drift.
 
 ## Supported Commands
