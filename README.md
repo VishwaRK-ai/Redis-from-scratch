@@ -1,16 +1,19 @@
 # Redis-from-scratch
 
 
+## Architecture
+
+* **Networking:** Operates on raw TCP sockets.the main thread listens for incoming connections and spawns a detached `std::thread` for each connected client to allow Concurrent request processing.
+* **RESP Parser:** Implements a custom parser for the Redis Serialization Protocol (RESP) to handle arrays, bulk strings, and strings.
+* **Storage (`Store` class):** The underlying database utilizes `std::unordered_map` for strings and `std::list` wrapped in maps for list data types.Memory mutations are thread-safe!!
+* **Replication Engine (`Replicator` class):** Follows a strict Master-Replica topology. The Master asynchronously propagates write commands over TCP to all connected Replicas.Replicas enforce a Read-Only to prevent localized state drift.
+
 ## Supported Commands
 * **Strings:** `SET` (with `EX` TTL support), `GET`
 * **Lists:** `LPUSH`, `RPUSH`, `LRANGE`, `LLEN`, `LREM`
 * **Keys:** `DEL`, `EXISTS`
 * **Connection/Server:** `PING`, `ECHO`, `REPLICAOF`, `SYNC`
 
-
-## Distributed Architecture (Master-Replica)
-
-Supports asynchronous Master-Replica state synchronization to scale read throughput across multiple nodes. Replicas maintain an identical memory state through a detached `std::thread`by continuously parsing the incoming TCP byte stream from the Master
 
 
 **1. Spin up two nodes via Docker:**

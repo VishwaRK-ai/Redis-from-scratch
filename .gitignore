@@ -1,3 +1,5 @@
+
+cat << 'EOF' > .gitignore
 *.o
 *.out
 
@@ -13,3 +15,7 @@ LREM
 exit
 
 .DS_Store
+EOF
+
+
+git rm --cached --ignore-unmatch server LPUSH SET GET DEL RPUSH LRANGE LLEN LREM exit

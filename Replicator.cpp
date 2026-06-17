@@ -49,13 +49,26 @@ void Replicator::connectToMaster(int client_fd,const string& host,const string& 
         RESPParser local_parser;
 
         while(true){
-            memset(master_buffer,0, sizeof(master_buffer));
-            int bytes_read =read(master_socket,master_buffer, 1024);
+            string master_req;
+            char block[1024];
 
-            if(bytes_read <= 0)break;
+            //blocking read
+            memset(block,0,1024);
+            int bytes=read(master_socket,block,1024);
+            if(bytes<=0)break;
+            master_req.append(block,bytes);
+
+            //non blocking drain
+            while(bytes == 1024){
+                memset(block,0,1024);
+                bytes =recv(master_socket,block,1024,MSG_DONTWAIT);
+
+                if(bytes > 0)master_req.append(block,bytes);
+                else break;
+            }
 
             try{
-                vector<string> command=local_parser.parse(master_buffer);
+                vector<string> command=local_parser.parse(master_req);
                 if(command.empty())continue;
                 string c = command[0];
                 
